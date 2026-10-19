@@ -43,6 +43,18 @@ El resto de carpetas organiza responsabilidades separadas:
 | `tests/` | Pruebas de OpenTofu con proveedor simulado (no acceden a AWS) |
 | `scripts/` | Adaptadores `tofu-session.py` y `pulumi-session.py` para credenciales de `aws login` |
 
+## Instalación de herramientas
+
+En Windows, instala las CLIs con `winget` (los identificadores deben escribirse exactamente):
+
+```powershell
+winget install --id Amazon.AWSCLI -e
+winget install --id Pulumi.Pulumi -e
+winget install --id OpenTofu.Tofu -e
+```
+
+En Linux o macOS, sigue las guías oficiales de [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html), [OpenTofu](https://opentofu.org/docs/intro/install/) y [Pulumi](https://www.pulumi.com/docs/iac/download-install/). Se recomienda OpenTofu 1.11 o superior (el proyecto se configuró con 1.11.5) y AWS CLI 2.32 o superior para `aws login`.
+
 ## Clave SSH
 
 Se creó un par Ed25519 local compartido por ambos EC2:
