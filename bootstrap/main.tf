@@ -44,6 +44,12 @@ variable "shared_state_aws_managed_policies" {
   ]
 }
 
+variable "shared_state_extra_policy_arns" {
+  description = "ARNs de politicas propias ya existentes en la cuenta (por ejemplo OpenTofuReadAmazonLinuxAMI, OpenTofuResourceGroupsCreate y OpenTofuTagGlobomaticsResourceGroup)."
+  type        = list(string)
+  default     = []
+}
+
 resource "aws_s3_bucket" "state" {
   bucket        = local.bucket_name
   force_destroy = false
@@ -100,25 +106,21 @@ resource "aws_s3_bucket_policy" "state" {
 }
 
 # Acceso compartido: un grupo IAM concentra los permisos y cada companero se
-# agrega al grupo en lugar de recibir una politica individual.
-resource "aws_iam_policy" "state_access" {
-  name        = "globomatics-shared-state"
-  description = "Lectura/escritura del estado del laboratorio y su bloqueo en S3."
-  policy      = file("${path.module}/../iam/state-access.json")
-}
-
+# agrega al grupo en lugar de recibir una politica individual por usuario.
 resource "aws_iam_group" "shared_state" {
   name = "globomatics-shared-state"
   path = "/"
 }
 
-resource "aws_iam_group_policy_attachment" "state_access" {
-  group      = aws_iam_group.shared_state.name
-  policy_arn = aws_iam_policy.state_access.arn
+# Politica insertada del grupo: acceso al estado compartido (OpenTofu y Pulumi).
+resource "aws_iam_group_policy" "state_access" {
+  name   = "globomatics-shared-state"
+  group  = aws_iam_group.shared_state.name
+  policy = file("${path.module}/../iam/state-access.json")
 }
 
 resource "aws_iam_group_policy_attachment" "aws_managed" {
-  for_each   = toset(var.shared_state_aws_managed_policies)
+  for_each   = toset(concat(var.shared_state_aws_managed_policies, var.shared_state_extra_policy_arns))
   group      = aws_iam_group.shared_state.name
   policy_arn = each.value
 }
@@ -138,9 +140,9 @@ output "state_access_group" {
   value       = aws_iam_group.shared_state.name
 }
 
-output "state_access_policy_arn" {
-  description = "ARN de la politica del estado compartido."
-  value       = aws_iam_policy.state_access.arn
+output "state_access_policy_name" {
+  description = "Nombre de la politica insertada del grupo."
+  value       = aws_iam_group_policy.state_access.name
 }
 
 output "state_access_users" {

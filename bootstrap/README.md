@@ -18,7 +18,7 @@ El bucket tiene versionado, cifrado SSE-S3, ACL deshabilitadas, bloqueo de acces
 
 Para trabajar en el laboratorio, usa los comandos del [README principal](../README.md). No ejecutes este módulo para crear un EC2 nuevo: los recursos del laboratorio se declaran en los archivos `.tf` de la carpeta superior.
 
-Los permisos se concentran en el **grupo IAM `globomatics-shared-state`**. Este módulo crea la política administrada `globomatics-shared-state` (definida en `../iam/state-access.json`), la adjunta al grupo y le suma `AmazonEC2FullAccess` y `AmazonVPCFullAccess`. Cada compañero se agrega al grupo con la variable `shared_state_users`, cuyo valor por defecto es `["opentofu", "usuario1", "usuario2"]`:
+Los permisos se concentran en el **grupo IAM `globomatics-shared-state`**. Este módulo crea el grupo, le inserta la política `globomatics-shared-state` (definida en `../iam/state-access.json`) y le adjunta `AmazonEC2FullAccess` y `AmazonVPCFullAccess`. Cada compañero se agrega al grupo con la variable `shared_state_users`, cuyo valor por defecto es `["opentofu", "usuario1", "usuario2"]`:
 
 ```hcl
 # Para sumar a alguien, agrega su usuario IAM y aplica el módulo.
@@ -26,6 +26,28 @@ shared_state_users = ["opentofu", "usuario1", "usuario2", "usuario3"]
 ```
 
 La política del estado permite leer y escribir el estado del laboratorio (y el de Pulumi) y crear/eliminar su bloqueo. No concede borrado del estado, administración del bucket ni acceso al prefijo del backend. No se comparten claves de acceso ni se publica el bucket. Todos deben usar el workspace `default` y actualizar el código desde GitHub antes de planificar. La cuenta del proyecto es `222234418877`; los usuarios entran con `aws login --profile proyecto --region us-east-2`.
+
+### Políticas propias que ya existan
+
+Si la cuenta ya tiene las políticas `OpenTofuReadAmazonLinuxAMI`, `OpenTofuResourceGroupsCreate` y `OpenTofuTagGlobomaticsResourceGroup` (necesarias para planificar), pásalas al grupo sin recrearlas:
+
+```hcl
+shared_state_extra_policy_arns = [
+  "arn:aws:iam::222234418877:policy/OpenTofuReadAmazonLinuxAMI",
+  "arn:aws:iam::222234418877:policy/OpenTofuResourceGroupsCreate",
+  "arn:aws:iam::222234418877:policy/OpenTofuTagGlobomaticsResourceGroup",
+]
+```
+
+### Si el grupo ya existe en AWS
+
+Este módulo declara el grupo `globomatics-shared-state`. Si un administrador ya lo creó a mano, impórtalo **antes** de `apply` para no duplicarlo:
+
+```bash
+tofu -chdir=bootstrap import aws_iam_group.shared_state globomatics-shared-state
+```
+
+La política insertada, las asignaciones de políticas administradas y la pertenencia de usuarios se aplican de forma idempotente sobre el grupo importado.
 
 ## Administrar el backend existente
 
