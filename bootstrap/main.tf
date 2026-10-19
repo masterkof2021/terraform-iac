@@ -27,6 +27,23 @@ locals {
   bucket_name = "globomatics-tofu-state-${data.aws_caller_identity.current.account_id}-us-east-2"
 }
 
+# Usuarios IAM que reciben acceso al estado compartido. Para sumar a un
+# companero solo hay que anadir su usuario a esta lista y aplicar el modulo.
+variable "shared_state_users" {
+  description = "Usuarios IAM que se agregan al grupo globomatics-shared-state."
+  type        = list(string)
+  default     = ["opentofu", "usuario1", "usuario2"]
+}
+
+variable "shared_state_aws_managed_policies" {
+  description = "Politicas administradas por AWS que el grupo necesita para operar el laboratorio."
+  type        = list(string)
+  default = [
+    "arn:aws:iam::aws:policy/AmazonEC2FullAccess",
+    "arn:aws:iam::aws:policy/AmazonVPCFullAccess",
+  ]
+}
+
 resource "aws_s3_bucket" "state" {
   bucket        = local.bucket_name
   force_destroy = false
@@ -82,13 +99,51 @@ resource "aws_s3_bucket_policy" "state" {
   depends_on = [aws_s3_bucket_public_access_block.state]
 }
 
-# Acceso del usuario existente autorizado para operar el estado del laboratorio.
-resource "aws_iam_user_policy" "project_state" {
-  name   = "globomatics-shared-state"
-  user   = "opentofu"
-  policy = file("${path.module}/../iam/state-access.json")
+# Acceso compartido: un grupo IAM concentra los permisos y cada companero se
+# agrega al grupo en lugar de recibir una politica individual.
+resource "aws_iam_policy" "state_access" {
+  name        = "globomatics-shared-state"
+  description = "Lectura/escritura del estado del laboratorio y su bloqueo en S3."
+  policy      = file("${path.module}/../iam/state-access.json")
+}
+
+resource "aws_iam_group" "shared_state" {
+  name = "globomatics-shared-state"
+  path = "/"
+}
+
+resource "aws_iam_group_policy_attachment" "state_access" {
+  group      = aws_iam_group.shared_state.name
+  policy_arn = aws_iam_policy.state_access.arn
+}
+
+resource "aws_iam_group_policy_attachment" "aws_managed" {
+  for_each   = toset(var.shared_state_aws_managed_policies)
+  group      = aws_iam_group.shared_state.name
+  policy_arn = each.value
+}
+
+resource "aws_iam_user_group_membership" "shared_state" {
+  for_each = toset(var.shared_state_users)
+  user     = each.value
+  groups   = [aws_iam_group.shared_state.name]
 }
 
 output "state_bucket" {
   value = aws_s3_bucket.state.id
+}
+
+output "state_access_group" {
+  description = "Grupo IAM que recibe los permisos del estado compartido."
+  value       = aws_iam_group.shared_state.name
+}
+
+output "state_access_policy_arn" {
+  description = "ARN de la politica del estado compartido."
+  value       = aws_iam_policy.state_access.arn
+}
+
+output "state_access_users" {
+  description = "Usuarios agregados al grupo del estado compartido."
+  value       = sort(var.shared_state_users)
 }

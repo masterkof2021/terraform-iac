@@ -33,6 +33,16 @@ Todos los archivos `.tf` de esta carpeta forman un único módulo y se cargan ju
 | `compute.tf` | Consultas de AMI/zonas, clave SSH e instancias EC2 con sus discos |
 | `outputs.tf` | Direcciones de servidores y comandos SSH |
 
+El resto de carpetas organiza responsabilidades separadas:
+
+| Carpeta | Responsabilidad |
+|---|---|
+| `bootstrap/` | Bucket S3 del estado, sus protecciones y el grupo IAM `globomatics-shared-state` |
+| `iam/` | Políticas JSON: `state-access.json` (estado compartido) y `backend-admin.json` (administrar el bucket) |
+| `pulumi/` | Proyecto Pulumi (TypeScript) que crea una VM EC2 y su Security Group |
+| `tests/` | Pruebas de OpenTofu con proveedor simulado (no acceden a AWS) |
+| `scripts/` | Adaptadores `tofu-session.py` y `pulumi-session.py` para credenciales de `aws login` |
+
 ## Clave SSH
 
 Se creó un par Ed25519 local compartido por ambos EC2:
@@ -46,12 +56,14 @@ OpenTofu importa **solo la pública** a AWS como `key-globomatics-lab`. No gener
 
 El backend está configurado para el bucket `globomatics-tofu-state-222234418877-us-east-2`, en `us-east-2`, y la clave `globomatics/lab/terraform.tfstate`, con cifrado y bloqueo nativo S3. La creación y migración están completadas: S3 es el estado oficial compartido. Se verificó que la migración conserva los 18 recursos administrados del laboratorio y todas sus salidas. Los respaldos previos se conservan de forma privada en `state-backups/`, fuera de Git. Consulta la [guía del backend](bootstrap/README.md) para su administración.
 
-`bootstrap/` administra el bucket y la política de acceso por separado; `iam/state-access.json` contiene permisos para los colaboradores y `iam/backend-admin.json` permisos S3 para administrar el bucket. Se asignó `globomatics-shared-state` al usuario IAM existente `opentofu`, con autorización expresa, para leer/escribir solo el estado del laboratorio y gestionar su bloqueo. Para nuevas identidades, un administrador debe asignar permisos equivalentes; no se crearon usuarios ni se distribuyeron credenciales. Las identidades de otras cuentas deben asumir un rol autorizado de la cuenta del proyecto (`222234418877`).
+`bootstrap/` administra el bucket y el acceso por separado; `iam/state-access.json` contiene los permisos del estado (OpenTofu y Pulumi) y `iam/backend-admin.json` los permisos S3 para administrar el bucket. El acceso se concentra en el **grupo IAM `globomatics-shared-state`**: se le adjunta la política del estado y las políticas administradas `AmazonEC2FullAccess` y `AmazonVPCFullAccess`, y cada compañero se agrega al grupo con la variable `shared_state_users` (`opentofu`, `usuario1` y `usuario2` por defecto). Así, para sumar a alguien basta con agregar su usuario a la lista y aplicar el módulo; no se comparten claves ni se crean credenciales. La cuenta del proyecto es `222234418877` y la consola de los usuarios es `https://222234418877.signin.aws.amazon.com/console`.
 
-Después de completar la migración, cada compañero debe obtener el código y usar su propia identidad autorizada en la cuenta del proyecto:
+Después de la migración, cada compañero inicia sesión con su propio usuario, obtiene el código y usa su identidad autorizada:
 
 ```bash
-export AWS_PROFILE=mi-perfil
+# Inicia sesion con tu usuario de la cuenta del proyecto (abre el navegador):
+aws login --profile proyecto --region us-east-2
+export AWS_PROFILE=proyecto
 tofu init
 tofu state list
 tofu plan -lock-timeout=5m -out=globomatics.tfplan
@@ -60,8 +72,8 @@ tofu plan -lock-timeout=5m -out=globomatics.tfplan
 Si tu perfil usa credenciales de `aws login`, el backend de OpenTofu 1.11.5 puede no reconocer `login_session` directamente. Usa el adaptador incluido, que obtiene credenciales temporales de la CLI y las entrega a OpenTofu solo en memoria:
 
 ```bash
-python3 scripts/tofu-session.py --aws-profile mi-perfil init
-python3 scripts/tofu-session.py --aws-profile mi-perfil plan -lock-timeout=5m
+python3 scripts/tofu-session.py --aws-profile proyecto init
+python3 scripts/tofu-session.py --aws-profile proyecto plan -lock-timeout=5m
 ```
 
 La sesión debe seguir vigente; cada invocación obtiene credenciales nuevas. Los perfiles que OpenTofu reconoce directamente, como el perfil actual `opentofu`, pueden usar los comandos habituales.
@@ -93,9 +105,25 @@ El plan consulta `/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.18-x8
 
 Las IP públicas son asignadas automáticamente, sin Elastic IP; pueden cambiar al detener/iniciar un EC2. En ese caso vuelve a ejecutar `tofu apply -refresh-only`, consulta las salidas para conocer las direcciones vigentes. Las IP privadas se mantienen fijas. Si cambia tu IP administrativa, usa `-var='ssh_source_cidr=NUEVA_IP/32'` al planificar y aplicar.
 
-Git solo debe contener código, documentación y los archivos `.terraform.lock.hcl`. `.gitignore` excluye estados, respaldos, planes, caché del backend y copias privadas en `state-backups/`. Si algún estado ya fue versionado en otra copia del repositorio, añadirlo a `.gitignore` no lo retira del índice ni del historial: revisa esa copia antes de compartirla.
+Git solo debe contener código, documentación y los archivos `.terraform.lock.hcl`. `.gitignore` excluye estados, respaldos, planes, caché del backend, dependencias de Pulumi (`node_modules/`, `bin/`) y copias privadas en `state-backups/`. Si algún estado ya fue versionado en otra copia del repositorio, añadirlo a `.gitignore` no lo retira del índice ni del historial: revisa esa copia antes de compartirla.
 
 S3 es el estado compartido oficial. El versionado permite recuperar versiones anteriores; conserva el bucket incluso si destruyes el laboratorio. S3 cobra por almacenamiento, versiones y solicitudes; consulta sus [tarifas](https://aws.amazon.com/s3/pricing/). EC2, almacenamiento e IPv4 públicas también pueden generar cargos.
+
+## VM con Pulumi
+
+Además de OpenTofu, el repositorio incluye un proyecto **Pulumi** en TypeScript (`pulumi/`) que crea una VM EC2 y su Security Group. El estado de Pulumi se guarda en el **mismo bucket compartido**, bajo el prefijo `globomatics/pulumi/`, por lo que el grupo `globomatics-shared-state` también puede consultarlo.
+
+```bash
+aws login --profile proyecto --region us-east-2
+python3 scripts/pulumi-session.py --aws-profile proyecto login "s3://globomatics-tofu-state-222234418877-us-east-2/globomatics/pulumi?region=us-east-2"
+cd pulumi
+npm install
+python3 ../scripts/pulumi-session.py --aws-profile proyecto stack select dev
+python3 ../scripts/pulumi-session.py --aws-profile proyecto preview
+python3 ../scripts/pulumi-session.py --aws-profile proyecto up
+```
+
+El `preview` debe mostrar 2 recursos a crear (`pulumi-vm-sg` y `pulumi-vm`). La salida `sshCommand` indica cómo conectarse con la clave compartida. Detalles y configuración en [`pulumi/README.md`](pulumi/README.md). `pulumi destroy` elimina **solo** la VM de Pulumi; no afecta los recursos de OpenTofu ni el bucket de estado.
 
 ## Verificación y eliminación
 

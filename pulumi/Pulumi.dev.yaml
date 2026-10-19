@@ -1,0 +1,6 @@
+config:
+  aws:region: us-east-2
+  globomatics-vm:sshSourceCidr: 181.114.108.136/32
+  globomatics-vm:instanceType: t3.micro
+  globomatics-vm:keyName: key-globomatics-lab
+  globomatics-vm:amiParameter: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.18-x86_64

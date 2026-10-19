@@ -1,0 +1,6 @@
+name: globomatics-vm
+description: VM EC2 de laboratorio Globomatics administrada con Pulumi.
+runtime:
+  name: nodejs
+  options:
+    packagemanager: npm

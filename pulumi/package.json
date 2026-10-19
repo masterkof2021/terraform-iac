@@ -1,0 +1,21 @@
+{
+  "name": "globomatics-vm",
+  "version": "0.1.0",
+  "private": true,
+  "description": "VM EC2 de laboratorio Globomatics administrada con Pulumi.",
+  "main": "index.ts",
+  "scripts": {
+    "build": "tsc",
+    "preview": "pulumi preview",
+    "up": "pulumi up",
+    "destroy": "pulumi destroy"
+  },
+  "dependencies": {
+    "@pulumi/aws": "^6.0.0",
+    "@pulumi/pulumi": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}

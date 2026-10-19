@@ -9,6 +9,7 @@ El backend ya está creado y ambos estados están migrados. La infraestructura e
 | Bucket | `globomatics-tofu-state-222234418877-us-east-2` |
 | Estado del laboratorio | `globomatics/lab/terraform.tfstate` |
 | Estado del backend | `globomatics/backend/terraform.tfstate` |
+| Estado de Pulumi | `globomatics/pulumi/` |
 | Bloqueo | Archivo `.tflock` junto a cada estado; `use_lockfile = true` |
 
 El bucket tiene versionado, cifrado SSE-S3, ACL deshabilitadas, bloqueo de acceso público y una política que exige HTTPS. No se necesita DynamoDB. `prevent_destroy` y `force_destroy = false` protegen el bucket desde OpenTofu; no impiden la eliminación directa por un administrador en AWS.
@@ -17,9 +18,14 @@ El bucket tiene versionado, cifrado SSE-S3, ACL deshabilitadas, bloqueo de acces
 
 Para trabajar en el laboratorio, usa los comandos del [README principal](../README.md). No ejecutes este módulo para crear un EC2 nuevo: los recursos del laboratorio se declaran en los archivos `.tf` de la carpeta superior.
 
-Con autorización expresa del propietario, este módulo asigna al usuario IAM existente `opentofu` la política `globomatics-shared-state`, definida en `../iam/state-access.json`. Permite leer y escribir el estado del laboratorio y crear/eliminar su bloqueo. No concede acceso al estado del backend, borrado del estado del laboratorio ni administración del bucket.
+Los permisos se concentran en el **grupo IAM `globomatics-shared-state`**. Este módulo crea la política administrada `globomatics-shared-state` (definida en `../iam/state-access.json`), la adjunta al grupo y le suma `AmazonEC2FullAccess` y `AmazonVPCFullAccess`. Cada compañero se agrega al grupo con la variable `shared_state_users`, cuyo valor por defecto es `["opentofu", "usuario1", "usuario2"]`:
 
-Para compañeros con otras identidades, un administrador debe asignar permisos equivalentes y los permisos para operar los recursos de la infraestructura. No se comparten claves de acceso ni se publica el bucket. Todos deben usar el workspace `default` y actualizar el código desde GitHub antes de planificar; las identidades de otras cuentas deben asumir un rol autorizado en la cuenta del proyecto.
+```hcl
+# Para sumar a alguien, agrega su usuario IAM y aplica el módulo.
+shared_state_users = ["opentofu", "usuario1", "usuario2", "usuario3"]
+```
+
+La política del estado permite leer y escribir el estado del laboratorio (y el de Pulumi) y crear/eliminar su bloqueo. No concede borrado del estado, administración del bucket ni acceso al prefijo del backend. No se comparten claves de acceso ni se publica el bucket. Todos deben usar el workspace `default` y actualizar el código desde GitHub antes de planificar. La cuenta del proyecto es `222234418877`; los usuarios entran con `aws login --profile proyecto --region us-east-2`.
 
 ## Administrar el backend existente
 

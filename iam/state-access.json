@@ -20,6 +20,16 @@
       "Resource": "arn:aws:s3:::globomatics-tofu-state-222234418877-us-east-2/globomatics/lab/terraform.tfstate"
     },
     {
+      "Sid": "ReadWritePulumiState",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject"
+      ],
+      "Resource": "arn:aws:s3:::globomatics-tofu-state-222234418877-us-east-2/globomatics/pulumi/*"
+    },
+    {
       "Sid": "ManageProjectLock",
       "Effect": "Allow",
       "Action": [

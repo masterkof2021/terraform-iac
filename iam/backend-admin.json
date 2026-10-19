@@ -42,7 +42,8 @@
       ],
       "Resource": [
         "arn:aws:s3:::globomatics-tofu-state-222234418877-us-east-2/globomatics/lab/terraform.tfstate",
-        "arn:aws:s3:::globomatics-tofu-state-222234418877-us-east-2/globomatics/backend/terraform.tfstate"
+        "arn:aws:s3:::globomatics-tofu-state-222234418877-us-east-2/globomatics/backend/terraform.tfstate",
+        "arn:aws:s3:::globomatics-tofu-state-222234418877-us-east-2/globomatics/pulumi/*"
       ]
     },
     {
