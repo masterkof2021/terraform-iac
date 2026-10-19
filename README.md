@@ -52,11 +52,37 @@ Se creó un par Ed25519 local compartido por ambos EC2:
 
 OpenTofu importa **solo la pública** a AWS como `key-globomatics-lab`. No genera ni almacena la privada en el estado. Guarda una copia segura de la privada; no la subas a Git ni a los servidores. Al usar otra máquina, proporciona `-var='ssh_public_key_path=/ruta/globomatics-ec2.pub'` y usa la privada correspondiente para SSH.
 
+En otra máquina puedes recuperar la **clave pública** existente desde AWS (no requiere la privada). En Windows PowerShell:
+
+```powershell
+aws ec2 describe-key-pairs `
+  --profile proyecto `
+  --region us-east-2 `
+  --key-names key-globomatics-lab `
+  --include-public-key `
+  --query "KeyPairs[0].PublicKey" `
+  --output text | Out-File -FilePath "$HOME\globomatics-ec2.pub" -Encoding ascii
+```
+
+Equivalente en Bash:
+
+```bash
+aws ec2 describe-key-pairs \
+  --profile proyecto \
+  --region us-east-2 \
+  --key-names key-globomatics-lab \
+  --include-public-key \
+  --query 'KeyPairs[0].PublicKey' \
+  --output text > "$HOME/globomatics-ec2.pub"
+```
+
+Comprueba que el archivo contenga una clave OpenSSH y no el texto `None`. No generes una clave nueva: reemplazarla propondría cambios sobre el par del proyecto.
+
 ## Estado compartido en S3
 
 El backend está configurado para el bucket `globomatics-tofu-state-222234418877-us-east-2`, en `us-east-2`, y la clave `globomatics/lab/terraform.tfstate`, con cifrado y bloqueo nativo S3. La creación y migración están completadas: S3 es el estado oficial compartido. Se verificó que la migración conserva los 18 recursos administrados del laboratorio y todas sus salidas. Los respaldos previos se conservan de forma privada en `state-backups/`, fuera de Git. Consulta la [guía del backend](bootstrap/README.md) para su administración.
 
-`bootstrap/` administra el bucket y el acceso por separado; `iam/state-access.json` contiene los permisos del estado (OpenTofu y Pulumi) y `iam/backend-admin.json` los permisos S3 para administrar el bucket. El acceso se concentra en el **grupo IAM `globomatics-shared-state`**: se le inserta la política del estado y se le adjuntan las políticas administradas `AmazonEC2FullAccess` y `AmazonVPCFullAccess`, y cada compañero se agrega al grupo con la variable `shared_state_users` (`opentofu`, `usuario1` y `usuario2` por defecto). Así, para sumar a alguien basta con agregar su usuario a la lista y aplicar el módulo; no se comparten claves ni se crean credenciales. La cuenta del proyecto es `222234418877` y la consola de los usuarios es `https://222234418877.signin.aws.amazon.com/console`.
+`bootstrap/` administra el bucket y el acceso por separado; `iam/state-access.json` contiene los permisos del estado (OpenTofu y Pulumi) y `iam/backend-admin.json` los permisos S3 para administrar el bucket. El acceso se concentra en el **grupo IAM `globomatics-shared-state`**: se le inserta la política del estado y se le adjuntan las políticas administradas `AmazonEC2FullAccess`, `AmazonVPCFullAccess` y `SignInLocalDevelopmentAccess` (necesaria para `aws login`), y cada compañero se agrega al grupo con la variable `shared_state_users` (`opentofu`, `usuario1` y `usuario2` por defecto). Así, para sumar a alguien basta con agregar su usuario a la lista y aplicar el módulo; no se comparten claves ni se crean credenciales. La cuenta del proyecto es `222234418877` y la consola de los usuarios es `https://222234418877.signin.aws.amazon.com/console`.
 
 Después de la migración, cada compañero inicia sesión con su propio usuario, obtiene el código y usa su identidad autorizada:
 

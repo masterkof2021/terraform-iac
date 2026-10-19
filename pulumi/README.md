@@ -19,7 +19,10 @@ del laboratorio, bajo el prefijo `globomatics/pulumi/`.
 - AWS CLI v2 con soporte de `aws login`.
 - Node.js 20 o superior y `npm`.
 - Pertenecer al grupo IAM `globomatics-shared-state` (ver
-  [backend compartido](../bootstrap/README.md)).
+  [backend compartido](../bootstrap/README.md)). Ese grupo incluye
+  `SignInLocalDevelopmentAccess`, necesaria para `aws login`.
+- Que exista el key pair `key-globomatics-lab` en la cuenta (lo crea OpenTofu).
+  Pulumi solo usa el **nombre** del key pair; no lee la clave pública.
 
 ## 1. Iniciar sesión en AWS
 

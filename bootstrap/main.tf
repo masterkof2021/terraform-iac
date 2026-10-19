@@ -41,6 +41,7 @@ variable "shared_state_aws_managed_policies" {
   default = [
     "arn:aws:iam::aws:policy/AmazonEC2FullAccess",
     "arn:aws:iam::aws:policy/AmazonVPCFullAccess",
+    "arn:aws:iam::aws:policy/SignInLocalDevelopmentAccess",
   ]
 }
 

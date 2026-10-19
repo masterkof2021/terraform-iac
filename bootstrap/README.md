@@ -18,7 +18,7 @@ El bucket tiene versionado, cifrado SSE-S3, ACL deshabilitadas, bloqueo de acces
 
 Para trabajar en el laboratorio, usa los comandos del [README principal](../README.md). No ejecutes este módulo para crear un EC2 nuevo: los recursos del laboratorio se declaran en los archivos `.tf` de la carpeta superior.
 
-Los permisos se concentran en el **grupo IAM `globomatics-shared-state`**. Este módulo crea el grupo, le inserta la política `globomatics-shared-state` (definida en `../iam/state-access.json`) y le adjunta `AmazonEC2FullAccess` y `AmazonVPCFullAccess`. Cada compañero se agrega al grupo con la variable `shared_state_users`, cuyo valor por defecto es `["opentofu", "usuario1", "usuario2"]`:
+Los permisos se concentran en el **grupo IAM `globomatics-shared-state`**. Este módulo crea el grupo, le inserta la política `globomatics-shared-state` (definida en `../iam/state-access.json`) y le adjunta `AmazonEC2FullAccess`, `AmazonVPCFullAccess` y `SignInLocalDevelopmentAccess` (esta última habilita `aws login`). Cada compañero se agrega al grupo con la variable `shared_state_users`, cuyo valor por defecto es `["opentofu", "usuario1", "usuario2"]`:
 
 ```hcl
 # Para sumar a alguien, agrega su usuario IAM y aplica el módulo.
